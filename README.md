@@ -42,10 +42,3 @@ The tool uses Server-Side JavaScript (SSJS) and the `WSProxy` object to interact
 
 > [!WARNING]
 > **Case Sensitivity:** The `SimpleOperator: "equals"` filter is case-sensitive. Ensure you provide the exact name as it appears in the SFMC UI.
-
----
-* [ ] **Partial Match:** Change the filter from `equals` to `like` to allow for broader searching.
-* [ ] **Validation Check:** Add a feature to check if the Target Data Extension still exists in the system.
-* [ ] **Copy to Clipboard:** Add a "Copy" button specifically for the SQL box.
-
-**Would you like me to modify the code to include a "Copy to Clipboard" button or change the search logic to allow partial name matches?**
