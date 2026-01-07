@@ -1,0 +1,191 @@
+<title>SQL Activity Content Inspector</title>
+<style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 30px; background-color: #f4f7f9; }
+        .container { margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        h2 { color: #0070d2; margin-top: 0; }
+        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex-grow: 1; padding: 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
+        button { padding: 12px 25px; background: #0070d2; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #005fb2; }
+        .query-card { border: 1px solid #ddd; border-radius: 8px; margin-top: 25px; background: #fff; overflow: hidden; }
+        .query-header { background: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd; }
+        .sql-label { font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px; display: block; }
+        .sql-box { background: #272822; color: #f8f8f2; padding: 20px; font-family: 'Consolas', monospace; white-space: pre-wrap; font-size: 13px; border-top: 1px solid #ddd; line-height: 1.5; }
+        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; margin-top: 10px; }
+        .target-de { color: #d32f2f; font-weight: bold; }
+        .update-type { color: #2e7d32; font-weight: bold; }
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-left: 10px; }
+        .status-active { background: #d4edda; color: #155724; }
+        .status-inactive { background: #fff3cd; color: #856404; }
+        .error-log { background: #fff1f0; border: 1px solid #ffa39e; padding: 15px; border-radius: 5px; margin-top: 20px; color: #cf1322; }
+        .warning-log { background: #fffbe6; border: 1px solid #ffe58f; padding: 15px; border-radius: 5px; margin-top: 20px; color: #856404; }
+        .debug-info { background: #f0f0f0; padding: 10px; margin-top: 10px; font-size: 12px; border-radius: 4px; }
+</style>
+
+
+
+<div class="container">
+    <h2>SQL Activity Content Inspector</h2>
+    <p>Enter the <b>Name</b> of the SQL Query Activity (works for both activated and non-activated queries).</p>
+
+    <form method="POST">
+        <div class="search-box">
+            <input type="text" name="queryName" placeholder="Exact SQL Activity Name..." required="">
+            <button type="submit">Inspect SQL Query Activities</button>
+        </div>
+    </form>
+
+    <div class="results">
+        <script runat="server">
+            Platform.Load("Core", "1.1.1");
+            var queryName = Request.GetFormField("queryName");
+
+            if (queryName) {
+                var prox = new Script.Util.WSProxy();
+                var foundQueries = {};
+                var foundCount = 0;
+
+                try {
+                    // STEP 1: Search QueryDefinition by Name (finds non-activated queries)
+                    // This finds the "Query" itself as it exists in the Query Studio/Activities folder
+                    var cols = ["Name", "QueryText", "DataExtensionTarget.Name", "TargetUpdateType", "CustomerKey", "ObjectID"];
+                    var filter = {
+                        Property: "Name",
+                        SimpleOperator: "equals",
+                        Value: queryName
+                    };
+
+                    var res = prox.retrieve("QueryDefinition", cols, filter);
+
+                    if (res.Status == "OK" && res.Results && res.Results.length > 0) {
+                        for (var i = 0; i < res.Results.length; i++) {
+                            var q = res.Results[i];
+                            var objID = q.ObjectID || "unknown_" + i;
+                            foundQueries[objID] = {
+                                query: q,
+                                isActivated: false
+                            };
+                            foundCount++;
+                        }
+                    }
+
+                    // STEP 2: Search AutomationActivity by Name (finds activated queries)
+                    // This identifies if the Query is currently used in an active Automation
+                    var activityCols = ["Name", "ActivityObject.ObjectID"];
+                    var activityFilter = {
+                        Property: "Name",
+                        SimpleOperator: "equals",
+                        Value: queryName
+                    };
+
+                    var activityRes = prox.retrieve("AutomationActivity", activityCols, activityFilter);
+
+                    // Create a Set of activated ObjectIDs first
+                    var activatedObjectIDs = {};
+
+                    if (activityRes.Status == "OK" && activityRes.Results && activityRes.Results.length > 0) {
+                        for (var j = 0; j < activityRes.Results.length; j++) {
+                            var activity = activityRes.Results[j];
+                            if (activity.ActivityObject && activity.ActivityObject.ObjectID) {
+                                activatedObjectIDs[activity.ActivityObject.ObjectID] = true;
+                            }
+                        }
+                    }
+
+                    // Now mark queries as activated if their ObjectID is in the set
+                    for (var key in foundQueries) {
+                        var queryObjectID = foundQueries[key].query.ObjectID;
+                        if (queryObjectID && activatedObjectIDs[queryObjectID]) {
+                            foundQueries[key].isActivated = true;
+                        }
+                    }
+
+                    // Add any activated queries that weren't found in step 1
+                    if (activityRes.Status == "OK" && activityRes.Results && activityRes.Results.length > 0) {
+                        for (var j = 0; j < activityRes.Results.length; j++) {
+                            var activity = activityRes.Results[j];
+
+                            if (activity.ActivityObject && activity.ActivityObject.ObjectID) {
+                                var objectID = activity.ActivityObject.ObjectID;
+
+                                // Check if we already have this query
+                                var alreadyFound = false;
+                                for (var key in foundQueries) {
+                                    if (foundQueries[key].query.ObjectID == objectID) {
+                                        alreadyFound = true;
+                                        break;
+                                    }
+                                }
+
+                                // If not found, retrieve it
+                                if (!alreadyFound) {
+                                    var objFilter = {
+                                        Property: "ObjectID",
+                                        SimpleOperator: "equals",
+                                        Value: objectID
+                                    };
+
+                                    var queryRes = prox.retrieve("QueryDefinition", cols, objFilter);
+
+                                    if (queryRes.Status == "OK" && queryRes.Results && queryRes.Results.length > 0) {
+                                        foundQueries[objectID] = {
+                                            query: queryRes.Results[0],
+                                            isActivated: true
+                                        };
+                                        foundCount++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Display results
+                    if (foundCount > 0) {
+                        for (var key in foundQueries) {
+                            var item = foundQueries[key];
+                            var q = item.query;
+                            var targetName = q.DataExtensionTarget ? q.DataExtensionTarget.Name : "Not Found";
+                            var updateType = q.TargetUpdateType || "Not Found";
+
+                            Write("<div class='query-card'>");
+                            Write("  <div class='query-header'>");
+                            Write("    <strong>Name:</strong> " + q.Name);
+                            /*
+                            if (item.isActivated) {
+                                Write("    <span class='status-badge status-active'>ACTIVATED</span><br>");
+                            } else {
+                                Write("    <span class='status-badge status-inactive'>NOT ACTIVATED</span><br>");
+                            }
+                            */
+                            Write("    <div class='meta-grid'>");
+                            Write("       <div><b>Target DE:</b> <span class='target-de'>" + targetName + "</span></div>");
+                            Write("       <div><b>Update Type:</b> <span class='update-type'>" + updateType + "</span></div>");
+                            /*
+                            if (q.CustomerKey) {
+                                Write("       <div><b>Customer Key:</b> " + q.CustomerKey + "</div>");
+                            }
+                            if (q.ObjectID) {
+                                Write("       <div><b>Object ID:</b> " + q.ObjectID + "</div>");
+                            }
+                            */
+                            Write("    </div>");
+                            Write("  </div>");
+                            Write("  <span class='sql-label' style='padding: 10px 15px 0 15px;'>SQL STATEMENT:</span>");
+                            Write("  <div class='sql-box'>" + q.QueryText + "</div>");
+                            Write("</div>");
+                        }
+                    } else {
+                        Write("<div class='warning-log'>No SQL Activity found with the exact name: <b>" + queryName + "</b>.<br><br>");
+                        Write("Search results:<br>");
+                        Write("- QueryDefinition search status: " + res.Status + "<br>");
+                        Write("- AutomationActivity search status: " + activityRes.Status + "<br>");
+                        Write("<br>Please verify the name is exactly as shown in Automation Studio (case-sensitive).</div>");
+                    }
+
+                } catch (err) {
+                    Write("<div class='error-log'><strong>System Error:</strong> " + Stringify(err) + "</div>");
+                }
+            }
+        </script>
+    </div>
+</div>
