@@ -39,6 +39,3 @@ The tool uses Server-Side JavaScript (SSJS) and the `WSProxy` object to interact
 | **WSProxy Retrieve** | Used to pull `QueryDefinition` properties like `QueryText` and `DataExtensionTarget`. |
 | **AutomationActivity** | Used as a secondary check to verify if the query is associated with an active automation. |
 | **Grid Layout** | A CSS-based layout used to display the "Target DE" and "Update Type" side-by-side. |
-
-> [!WARNING]
-> **Case Sensitivity:** The `SimpleOperator: "equals"` filter is case-sensitive. Ensure you provide the exact name as it appears in the SFMC UI.
