@@ -1,191 +1,422 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SQL Activity Content Inspector</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&amp;family=Syne:wght@400;600;800&amp;display=swap" rel="stylesheet">
 <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 30px; background-color: #f4f7f9; }
-        .container { margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        h2 { color: #0070d2; margin-top: 0; }
-        .search-box { display: flex; gap: 10px; margin-bottom: 20px; }
-        input[type="text"] { flex-grow: 1; padding: 12px; border: 1px solid #ccc; border-radius: 5px; font-size: 16px; }
-        button { padding: 12px 25px; background: #0070d2; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #005fb2; }
-        .query-card { border: 1px solid #ddd; border-radius: 8px; margin-top: 25px; background: #fff; overflow: hidden; }
-        .query-header { background: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd; }
-        .sql-label { font-size: 12px; font-weight: bold; color: #555; margin-bottom: 5px; display: block; }
-        .sql-box { background: #272822; color: #f8f8f2; padding: 20px; font-family: 'Consolas', monospace; white-space: pre-wrap; font-size: 13px; border-top: 1px solid #ddd; line-height: 1.5; }
-        .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; margin-top: 10px; }
-        .target-de { color: #d32f2f; font-weight: bold; }
-        .update-type { color: #2e7d32; font-weight: bold; }
-        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-left: 10px; }
-        .status-active { background: #d4edda; color: #155724; }
-        .status-inactive { background: #fff3cd; color: #856404; }
-        .error-log { background: #fff1f0; border: 1px solid #ffa39e; padding: 15px; border-radius: 5px; margin-top: 20px; color: #cf1322; }
-        .warning-log { background: #fffbe6; border: 1px solid #ffe58f; padding: 15px; border-radius: 5px; margin-top: 20px; color: #856404; }
-        .debug-info { background: #f0f0f0; padding: 10px; margin-top: 10px; font-size: 12px; border-radius: 4px; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0d0f14;
+    --surface:  #161921;
+    --card:     #1c2030;
+    --border:   #2a3045;
+    --accent:   #4f8ef7;
+    --accent2:  #f7924f;
+    --red:      #f75a5a;
+    --green:    #4fd69c;
+    --text:     #e2e8f0;
+    --muted:    #7a8299;
+    --code-bg:  #111318;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.25;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  /* ── Header ── */
+  .header {
+    margin-bottom: 36px;
+  }
+  .header-eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .header h1 {
+    font-size: clamp(22px, 4vw, 34px);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  .header h1 span { color: var(--accent); }
+  .header p {
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  /* ── Search ── */
+  .search-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .search-row {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .search-row input {
+    flex: 1;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-row input::placeholder { color: var(--muted); }
+  .search-row input:focus { border-color: var(--accent); }
+  .search-row button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 24px;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .search-row button:hover { background: #3a7de8; }
+  .search-row button:active { transform: scale(0.97); }
+  .hint {
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .hint strong { color: var(--accent2); }
+
+  /* ── Result count banner ── */
+  .result-banner {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    letter-spacing: 0.05em;
+  }
+  .result-banner strong { color: var(--green); }
+
+  /* ── Query Card ── */
+  .query-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+    transition: border-color 0.2s;
+  }
+  .query-card:hover { border-color: #3a4560; }
+
+  .query-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .query-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .meta-pills {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  .pill-target {
+    color: var(--red);
+    border-color: rgba(247,90,90,0.3);
+    background: rgba(247,90,90,0.08);
+  }
+  .pill-update {
+    color: var(--green);
+    border-color: rgba(79,214,156,0.3);
+    background: rgba(79,214,156,0.08);
+  }
+
+  /* ── SQL Editor Area ── */
+  .editor-wrap {
+    position: relative;
+  }
+  .editor-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: #13151c;
+    border-bottom: 1px solid var(--border);
+  }
+  .editor-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 5px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+  .copy-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(79,142,247,0.08);
+  }
+  .copy-btn.copied {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(79,214,156,0.08);
+  }
+  .copy-btn svg { flex-shrink: 0; }
+
+  .sql-box {
+    background: var(--code-bg);
+    color: #abb2bf;
+    padding: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: pre-wrap;
+    font-size: 13px;
+    line-height: 1.65;
+    overflow-x: auto;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  /* Scrollbar styling */
+  .sql-box::-webkit-scrollbar { width: 6px; height: 6px; }
+  .sql-box::-webkit-scrollbar-track { background: transparent; }
+  .sql-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .sql-box::-webkit-scrollbar-thumb:hover { background: #3a4560; }
+
+  /* ── Alerts ── */
+  .alert {
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.6;
+    border: 1px solid;
+  }
+  .alert-warn {
+    background: rgba(247,146,79,0.08);
+    border-color: rgba(247,146,79,0.35);
+    color: var(--accent2);
+  }
+  .alert-error {
+    background: rgba(247,90,90,0.08);
+    border-color: rgba(247,90,90,0.35);
+    color: var(--red);
+  }
+  .alert strong { font-weight: 700; }
 </style>
 
 
-
 <div class="container">
-    <h2>SQL Activity Content Inspector</h2>
-    <p>Enter the <b>Name</b> of the SQL Query Activity (works for both activated and non-activated queries).</p>
 
+  <div class="header">
+    <h1>SQL Activity <span>Inspector</span></h1>
+    <p>Search by partial name — returns all matching Query Activities and their full SQL statements.</p>
+  </div>
+
+  <div class="search-card">
     <form method="POST">
-        <div class="search-box">
-            <input type="text" name="queryName" placeholder="Exact SQL Activity Name..." required="">
-            <button type="submit">Inspect SQL Query Activities</button>
-        </div>
+      <div class="search-row">
+        <input type="text" name="queryName" placeholder="e.g. Daily_Sync or Contact..." value="" required="">
+        <button type="submit">Search Queries</button>
+      </div>
+      <div class="hint">Partial names work &mdash; returns all activities whose name <strong>contains</strong> your search term.</div>
     </form>
+  </div>
 
-    <div class="results">
-        <script runat="server">
-            Platform.Load("Core", "1.1.1");
-            var queryName = Request.GetFormField("queryName");
+  <div class="results">
+    <script runat="server">
+      Platform.Load("Core", "1.1.1");
+      var queryName = Request.GetFormField("queryName");
 
-            if (queryName) {
-                var prox = new Script.Util.WSProxy();
-                var foundQueries = {};
-                var foundCount = 0;
+      if (queryName) {
+        var prox = new Script.Util.WSProxy();
+        var foundQueries = [];
+        var foundCount = 0;
 
-                try {
-                    // STEP 1: Search QueryDefinition by Name (finds non-activated queries)
-                    // This finds the "Query" itself as it exists in the Query Studio/Activities folder
-                    var cols = ["Name", "QueryText", "DataExtensionTarget.Name", "TargetUpdateType", "CustomerKey", "ObjectID"];
-                    var filter = {
-                        Property: "Name",
-                        SimpleOperator: "equals",
-                        Value: queryName
-                    };
+        try {
+          // QueryDefinition supports "like" with % wildcards
+          var cols = ["Name", "QueryText", "DataExtensionTarget.Name", "TargetUpdateType", "ObjectID"];
+          var filter = {
+            Property: "Name",
+            SimpleOperator: "like",
+            Value: "%" + queryName + "%"
+          };
 
-                    var res = prox.retrieve("QueryDefinition", cols, filter);
+          var res = prox.retrieve("QueryDefinition", cols, filter);
 
-                    if (res.Status == "OK" && res.Results && res.Results.length > 0) {
-                        for (var i = 0; i < res.Results.length; i++) {
-                            var q = res.Results[i];
-                            var objID = q.ObjectID || "unknown_" + i;
-                            foundQueries[objID] = {
-                                query: q,
-                                isActivated: false
-                            };
-                            foundCount++;
-                        }
-                    }
+          if (res.Status == "OK" && res.Results && res.Results.length > 0) {
+            foundQueries = res.Results;
+            foundCount   = res.Results.length;
+          }
 
-                    // STEP 2: Search AutomationActivity by Name (finds activated queries)
-                    // This identifies if the Query is currently used in an active Automation
-                    var activityCols = ["Name", "ActivityObject.ObjectID"];
-                    var activityFilter = {
-                        Property: "Name",
-                        SimpleOperator: "equals",
-                        Value: queryName
-                    };
+          // ── Render results ──
+          if (foundCount > 0) {
+            Write("<div class='result-banner'>Found <strong>" + foundCount + " quer" + (foundCount == 1 ? "y" : "ies") + "</strong> matching &ldquo;" + queryName + "&rdquo;</div>");
 
-                    var activityRes = prox.retrieve("AutomationActivity", activityCols, activityFilter);
+            for (var i = 0; i < foundQueries.length; i++) {
+              var q          = foundQueries[i];
+              var targetName = q.DataExtensionTarget ? q.DataExtensionTarget.Name : "N/A";
+              var updateType = q.TargetUpdateType || "N/A";
+              var safeSQL    = q.QueryText ? q.QueryText.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;") : "";
+              var cardId     = "card_" + i;
 
-                    // Create a Set of activated ObjectIDs first
-                    var activatedObjectIDs = {};
+              Write("<div class='query-card' id='" + cardId + "'>");
+              Write("  <div class='query-header'>");
+              Write("    <div>");
+              Write("      <div class='query-name'>" + q.Name + "</div>");
+              Write("      <div class='meta-pills'>");
+              Write("        <span class='pill pill-target'>&#8594; " + targetName + "</span>");
+              Write("        <span class='pill pill-update'>" + updateType + "</span>");
+              Write("      </div>");
+              Write("    </div>");
+              Write("  </div>");
 
-                    if (activityRes.Status == "OK" && activityRes.Results && activityRes.Results.length > 0) {
-                        for (var j = 0; j < activityRes.Results.length; j++) {
-                            var activity = activityRes.Results[j];
-                            if (activity.ActivityObject && activity.ActivityObject.ObjectID) {
-                                activatedObjectIDs[activity.ActivityObject.ObjectID] = true;
-                            }
-                        }
-                    }
-
-                    // Now mark queries as activated if their ObjectID is in the set
-                    for (var key in foundQueries) {
-                        var queryObjectID = foundQueries[key].query.ObjectID;
-                        if (queryObjectID && activatedObjectIDs[queryObjectID]) {
-                            foundQueries[key].isActivated = true;
-                        }
-                    }
-
-                    // Add any activated queries that weren't found in step 1
-                    if (activityRes.Status == "OK" && activityRes.Results && activityRes.Results.length > 0) {
-                        for (var j = 0; j < activityRes.Results.length; j++) {
-                            var activity = activityRes.Results[j];
-
-                            if (activity.ActivityObject && activity.ActivityObject.ObjectID) {
-                                var objectID = activity.ActivityObject.ObjectID;
-
-                                // Check if we already have this query
-                                var alreadyFound = false;
-                                for (var key in foundQueries) {
-                                    if (foundQueries[key].query.ObjectID == objectID) {
-                                        alreadyFound = true;
-                                        break;
-                                    }
-                                }
-
-                                // If not found, retrieve it
-                                if (!alreadyFound) {
-                                    var objFilter = {
-                                        Property: "ObjectID",
-                                        SimpleOperator: "equals",
-                                        Value: objectID
-                                    };
-
-                                    var queryRes = prox.retrieve("QueryDefinition", cols, objFilter);
-
-                                    if (queryRes.Status == "OK" && queryRes.Results && queryRes.Results.length > 0) {
-                                        foundQueries[objectID] = {
-                                            query: queryRes.Results[0],
-                                            isActivated: true
-                                        };
-                                        foundCount++;
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Display results
-                    if (foundCount > 0) {
-                        for (var key in foundQueries) {
-                            var item = foundQueries[key];
-                            var q = item.query;
-                            var targetName = q.DataExtensionTarget ? q.DataExtensionTarget.Name : "Not Found";
-                            var updateType = q.TargetUpdateType || "Not Found";
-
-                            Write("<div class='query-card'>");
-                            Write("  <div class='query-header'>");
-                            Write("    <strong>Name:</strong> " + q.Name);
-                            /*
-                            if (item.isActivated) {
-                                Write("    <span class='status-badge status-active'>ACTIVATED</span><br>");
-                            } else {
-                                Write("    <span class='status-badge status-inactive'>NOT ACTIVATED</span><br>");
-                            }
-                            */
-                            Write("    <div class='meta-grid'>");
-                            Write("       <div><b>Target DE:</b> <span class='target-de'>" + targetName + "</span></div>");
-                            Write("       <div><b>Update Type:</b> <span class='update-type'>" + updateType + "</span></div>");
-                            /*
-                            if (q.CustomerKey) {
-                                Write("       <div><b>Customer Key:</b> " + q.CustomerKey + "</div>");
-                            }
-                            if (q.ObjectID) {
-                                Write("       <div><b>Object ID:</b> " + q.ObjectID + "</div>");
-                            }
-                            */
-                            Write("    </div>");
-                            Write("  </div>");
-                            Write("  <span class='sql-label' style='padding: 10px 15px 0 15px;'>SQL STATEMENT:</span>");
-                            Write("  <div class='sql-box'>" + q.QueryText + "</div>");
-                            Write("</div>");
-                        }
-                    } else {
-                        Write("<div class='warning-log'>No SQL Activity found with the exact name: <b>" + queryName + "</b>.<br><br>");
-                        Write("Search results:<br>");
-                        Write("- QueryDefinition search status: " + res.Status + "<br>");
-                        Write("- AutomationActivity search status: " + activityRes.Status + "<br>");
-                        Write("<br>Please verify the name is exactly as shown in Automation Studio (case-sensitive).</div>");
-                    }
-
-                } catch (err) {
-                    Write("<div class='error-log'><strong>System Error:</strong> " + Stringify(err) + "</div>");
-                }
+              Write("  <div class='editor-wrap'>");
+              Write("    <div class='editor-toolbar'>");
+              Write("      <span class='editor-label'>SQL Statement</span>");
+              Write("      <button class='copy-btn' onclick=\"copySql('" + cardId + "', this)\" type='button'>");
+              Write("        <svg width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'>");
+              Write("          <rect x='9' y='9' width='13' height='13' rx='2'/>");
+              Write("          <path d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/>");
+              Write("        </svg>");
+              Write("        Copy SQL");
+              Write("      </button>");
+              Write("    </div>");
+              Write("    <pre class='sql-box' id='sql_" + cardId + "'>" + safeSQL + "</pre>");
+              Write("  </div>");
+              Write("</div>");
             }
-        </script>
-    </div>
+
+          } else {
+            Write("<div class='alert alert-warn'><strong>No results found</strong> for &ldquo;" + queryName + "&rdquo;.<br><br>");
+            Write("QueryDefinition search status: " + res.Status + "<br><br>");
+            Write("Try a shorter or different search term.</div>");
+          }
+
+        } catch (err) {
+          Write("<div class='alert alert-error'><strong>System Error:</strong> " + Stringify(err) + "</div>");
+        }
+      }
+    </script>
+  </div>
+
 </div>
+
+<script>
+  // Pre-fill the input on page load so the search term stays visible after submit
+  (function() {
+    var params = new URLSearchParams(window.location.search);
+    // CloudPages POST — nothing to pre-fill via URL, but we preserve via value="" set server-side.
+    // The copy logic is all client-side.
+  })();
+
+  function copySql(cardId, btn) {
+    var pre = document.getElementById('sql_' + cardId);
+    if (!pre) return;
+
+    var text = pre.innerText || pre.textContent;
+
+    // Modern clipboard API
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function() {
+        flashCopied(btn);
+      }).catch(function() {
+        fallbackCopy(text, btn);
+      });
+    } else {
+      fallbackCopy(text, btn);
+    }
+  }
+
+  function fallbackCopy(text, btn) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); flashCopied(btn); } catch(e) {}
+    document.body.removeChild(ta);
+  }
+
+  function flashCopied(btn) {
+    var orig = btn.innerHTML;
+    btn.classList.add('copied');
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+    setTimeout(function() {
+      btn.classList.remove('copied');
+      btn.innerHTML = orig;
+    }, 2000);
+  }
+</script>
